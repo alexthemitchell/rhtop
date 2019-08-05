@@ -1,8 +1,8 @@
 extern crate crossterm;
 
 mod display;
-mod system;
 mod models;
+mod system;
 
 use std::{thread, time};
 
@@ -17,7 +17,7 @@ fn main() {
     match term {
         Ok(terminal) => {
             report_loop(terminal);
-        },
+        }
         Err(e) => println!("{}", e),
     }
 }

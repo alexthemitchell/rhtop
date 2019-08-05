@@ -3,15 +3,12 @@ extern crate sysinfo;
 use std::ffi::OsStr;
 use sysinfo::{DiskExt, System, SystemExt};
 
-use super::models::{
-    new_disk_snapshot, new_memory_snapshot, new_swap_snapshot, new_system_report, DiskSnapshot,
-    MemorySnapshot, SwapSnapshot, SystemReport,
-};
+use super::models::{ DiskSnapshot, MemorySnapshot, SwapSnapshot, SystemReport};
 
 pub fn new_report() -> SystemReport {
     let mut sys = System::new();
     sys.refresh_all();
-    return new_system_report(
+    return SystemReport::new(
         disks_from_sys(&sys),
         memory_from_sys(&sys),
         swap_from_sys(&sys),
@@ -36,7 +33,7 @@ fn disks_from_sys(sys: &System) -> Vec<DiskSnapshot> {
     sys.get_disks()
         .iter()
         .map(|d| {
-            new_disk_snapshot(
+            DiskSnapshot::new(
                 osstr_to_str(d.get_name()),
                 fs_type_for_disk(d),
                 d.get_available_space(),
@@ -47,11 +44,11 @@ fn disks_from_sys(sys: &System) -> Vec<DiskSnapshot> {
 }
 
 fn memory_from_sys(sys: &System) -> MemorySnapshot {
-    new_memory_snapshot(sys.get_total_memory(), sys.get_used_memory())
+    MemorySnapshot::new(sys.get_total_memory(), sys.get_used_memory())
 }
 
 fn swap_from_sys(sys: &System) -> SwapSnapshot {
-    new_swap_snapshot(sys.get_total_swap(), sys.get_used_swap())
+    SwapSnapshot::new(sys.get_total_swap(), sys.get_used_swap())
 }
 
 /*
