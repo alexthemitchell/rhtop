@@ -1,50 +1,32 @@
 use tui::backend::Backend;
-use tui::layout::{Constraint, Direction, Layout, Rect};
-use tui::style::{Color, Style};
-use tui::terminal::Frame;
-use tui::widgets::{Block, Borders, Gauge, Sparkline, Widget};
+use tui::layout::{Layout, Constraint, Direction};
 use tui::Terminal;
 
-use super::models::{MemorySnapshot, SystemReport};
+mod historical_gauge;
 
-fn memory_gauge_label<'a>(memory: &MemorySnapshot) -> String {
-    format!(
-        "{}/{} ({}%)",
-        memory.get_used_display(),
-        memory.get_total_display(),
-        memory.get_used_percentage()
-    )
-}
+use crate::models::{ProcessorSnapshot, SystemReport};
 
-fn render_memory_gauge<'a, B: Backend>(memory: &MemorySnapshot, frame: &mut Frame<B>, area: Rect) {
-    Gauge::default()
-        .block(Block::default().title("Memory Usage").borders(Borders::ALL))
-        .style(Style::default().fg(Color::Yellow))
-        .label(&memory_gauge_label(memory))
-        .percent(memory.get_used_percentage())
-        .render(frame, area);
-}
-
-fn get_memory_usage_history_data(memory_histories: Vec<&MemorySnapshot>) -> Vec<u64> {
-    memory_histories
+/*
+fn format_disks_for_list(disks: &[DiskSnapshot]) -> Vec<Text> {
+    disks
         .iter()
-        .map(|mh| mh.get_used_bytes())
+        .map(|d| Text::styled(d.description(), Style::default().fg(Color::Magenta)))
         .collect()
 }
-fn render_memory_history<B: Backend>(
-    memory_histories: Vec<&MemorySnapshot>,
-    mut frame: &mut Frame<B>,
-    area: Rect,
-) {
-    Sparkline::default()
-        .block(
-            Block::default()
-                .title("Memory Usage History")
-                .borders(Borders::LEFT | Borders::RIGHT),
-        )
-        .data(&get_memory_usage_history_data(memory_histories))
-        .style(Style::default().fg(Color::Green))
+fn render_disk_list<B: Backend>(disks: &[DiskSnapshot], frame: &mut Frame<B>, area: Rect) {
+    let texts: std::iter::Iterator::Item == tui::widgets::Text<'static> = format_disks_for_list(disks).iter();
+    List::new(texts)
+        .block(Block::default().borders(Borders::ALL).title("Disks"))
+        .start_corner(Corner::TopLeft)
         .render(&mut frame, area)
+}
+*/
+
+fn read_first_snapshot(report: &SystemReport) -> std::option::Option<(std::time::SystemTime, ProcessorSnapshot)>{
+    match report.get_processors().first() {
+        Some(processor) => Some((*report.get_time(), processor.clone())),
+        None => None,
+    }
 }
 
 pub fn render<B: Backend>(
@@ -53,20 +35,23 @@ pub fn render<B: Backend>(
 ) -> Result<(), std::io::Error> {
     terminal.draw(|mut frame| {
         let chunks = Layout::default()
-            .direction(Direction::Vertical)
+            .direction(Direction::Horizontal)
             .margin(2)
-            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+            .constraints([
+                Constraint::Percentage(50),
+                Constraint::Percentage(50)
+            ].as_ref())
             .split(frame.size());
 
-        // Current state 
-        match reports.first() {
-            Some(report) => render_memory_gauge(report.get_memory(), &mut frame, chunks[0]),
-            None => (),
-        }
+        let memory_history_tuple = reports.iter()
+            .map(|report| (*report.get_time(), report.get_memory().clone()))
+            .collect();
+        historical_gauge::render_historical_gauge(memory_history_tuple, &mut frame, chunks[0]);
 
-        let memory_history = reports.iter().map(|r| r.get_memory()).collect();
+        let processor_history_tuple = reports.iter()
+            .filter_map(|report|read_first_snapshot(report))
+            .collect();
 
-        // Historical State
-        render_memory_history(memory_history, &mut frame, chunks[1]);
+        historical_gauge::render_historical_gauge(processor_history_tuple, &mut frame, chunks[1]);
     })
 }

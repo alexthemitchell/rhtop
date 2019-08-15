@@ -1,17 +1,21 @@
 extern crate sysinfo;
 
 use std::ffi::OsStr;
-use sysinfo::{DiskExt, System, SystemExt};
+use sysinfo::{DiskExt, ProcessorExt, System, SystemExt};
 
-use super::models::{ DiskSnapshot, MemorySnapshot, SwapSnapshot, SystemReport};
+use super::models::{DiskSnapshot, MemorySnapshot, ProcessorSnapshot, SwapSnapshot, SystemReport};
 
 pub fn new_report() -> SystemReport {
     let mut sys = System::new();
     sys.refresh_all();
+    sys.refresh_all();
+    let now = std::time::SystemTime::now();
     return SystemReport::new(
         disks_from_sys(&sys),
         memory_from_sys(&sys),
         swap_from_sys(&sys),
+        processors_from_sys(&sys),
+        now,
     );
 }
 
@@ -44,11 +48,19 @@ fn disks_from_sys(sys: &System) -> Vec<DiskSnapshot> {
 }
 
 fn memory_from_sys(sys: &System) -> MemorySnapshot {
-    MemorySnapshot::new(sys.get_total_memory(), sys.get_used_memory())
+    // sysinfo has data in mB
+    MemorySnapshot::new(sys.get_total_memory() * 1000, sys.get_used_memory() * 1000)
 }
 
 fn swap_from_sys(sys: &System) -> SwapSnapshot {
     SwapSnapshot::new(sys.get_total_swap(), sys.get_used_swap())
+}
+
+fn processors_from_sys(sys: &System) -> Vec<ProcessorSnapshot> {
+    sys.get_processor_list()
+        .iter()
+        .map(|p| ProcessorSnapshot::new(p.get_name().to_string(), p.get_cpu_usage()))
+        .collect()
 }
 
 /*
@@ -63,7 +75,6 @@ fn get_status<'a>() -> SystemReport {
     }
 
     // Number of processors
-    println!("NB processors: {}", sys.get_processor_list().len());
     return new_report();
 }
 
